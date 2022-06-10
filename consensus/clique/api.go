@@ -17,6 +17,7 @@
 package clique
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -93,40 +94,18 @@ func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
 	return snap.signers(), nil
 }
 
-// Proposals returns the current proposals the node tries to uphold and vote on.
-func (api *API) Proposals() map[common.Address]bool {
-	api.clique.lock.RLock()
-	defer api.clique.lock.RUnlock()
-
-	proposals := make(map[common.Address]bool)
-	for address, auth := range api.clique.proposals {
-		proposals[address] = auth
-	}
-	return proposals
-}
-
-// Propose injects a new authorization proposal that the signer will attempt to
-// push through.
-func (api *API) Propose(address common.Address, auth bool) {
-	api.clique.lock.Lock()
-	defer api.clique.lock.Unlock()
-
-	api.clique.proposals[address] = auth
-}
-
-// Discard drops a currently running proposal, stopping the signer from casting
-// further votes (either for or against).
-func (api *API) Discard(address common.Address) {
-	api.clique.lock.Lock()
-	defer api.clique.lock.Unlock()
-
-	delete(api.clique.proposals, address)
-}
-
 type status struct {
 	InturnPercent float64                `json:"inturnPercent"`
 	SigningStatus map[common.Address]int `json:"sealerActivity"`
 	NumBlocks     uint64                 `json:"numBlocks"`
+}
+
+type epochPerformance struct {
+	InturnPercent float64                `json:"inturnPercent"`
+	SigningStatus map[common.Address]int `json:"sealerActivity"`
+	NumBlocks     uint64                 `json:"numBlocks"`
+	NextEpoch     uint64                 `json:"nextEpoch"`
+	StartBlock    uint64                 `json:"startBlock"`
 }
 
 // Status returns the status of the last N blocks,
@@ -176,6 +155,70 @@ func (api *API) Status() (*status, error) {
 		InturnPercent: float64(100*optimals) / float64(numBlocks),
 		SigningStatus: signStatus,
 		NumBlocks:     numBlocks,
+	}, nil
+}
+
+// EpochPerformance returns the performance of all the validators in an epoch,
+// - the signer activity,
+// - the number of blocks in epoch,
+// - start of epoch block,
+// - next epoch number if available else 0,
+// - the percentage of in-turn blocks
+func (api *API) EpochPerformance(epochNumber, epochBlockNumber uint64) (*epochPerformance, error) {
+	var (
+		numBlocks = uint64(0)
+		header    = api.chain.CurrentHeader()
+		optimals  = 0
+	)
+	epochBlock := api.chain.GetHeaderByNumber(epochBlockNumber)
+	if epochBlock == nil {
+		return nil, fmt.Errorf("missing epoch block %d", epochBlockNumber)
+	}
+	snap, err := api.clique.snapshot(api.chain, epochBlockNumber, epochBlock.Hash(), nil)
+	if err != nil {
+		return nil, err
+	}
+	if snap.EpochNumber != epochNumber {
+		return nil, fmt.Errorf("epoch number mismatch, expected=%v got=%v", epochNumber, snap.EpochNumber)
+	}
+	var (
+		signers = snap.signers()
+		end     = header.Number.Uint64()
+		start   = snap.Number + 1
+	)
+	signStatus := make(map[common.Address]int)
+	for _, s := range signers {
+		signStatus[s] = 0
+	}
+	nextEpoch := uint64(0)
+	n := start
+	for ; n <= end; n++ {
+		h := api.chain.GetHeaderByNumber(n)
+		if h == nil {
+			return nil, fmt.Errorf("missing block %d", n)
+		}
+		numBlocks++
+
+		if h.Difficulty.Cmp(diffInTurn) == 0 {
+			optimals++
+		}
+		sealer, err := api.clique.Author(h)
+		if err != nil {
+			return nil, err
+		}
+		signStatus[sealer]++
+
+		if !bytes.Equal(h.Nonce[:], nonceDropVote) {
+			nextEpoch = h.Nonce.Uint64()
+			break
+		}
+	}
+	return &epochPerformance{
+		InturnPercent: float64(100*optimals) / float64(numBlocks),
+		SigningStatus: signStatus,
+		NumBlocks:     numBlocks,
+		NextEpoch:     nextEpoch,
+		StartBlock:    start,
 	}, nil
 }
 
