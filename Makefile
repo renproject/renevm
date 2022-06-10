@@ -7,6 +7,8 @@
 GOBIN = ./build/bin
 GO ?= latest
 GORUN = env GO111MODULE=on go run
+IMAGE ?= aksara
+TAG ?= latest
 
 geth:
 	$(GORUN) build/ci.go install ./cmd/geth
@@ -48,3 +50,12 @@ devtools:
 	env GOBIN= go install ./cmd/abigen
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
+
+bootnode:
+	$(GORUN) build/ci.go install ./cmd/bootnode
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/bootnode\" to launch bootnode."
+
+image:
+	@echo "Building image ${IMAGE}:${TAG}"
+	docker build -t ${IMAGE}:${TAG} .

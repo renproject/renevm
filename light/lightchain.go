@@ -541,7 +541,7 @@ func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.Tru
 
 	latest := (checkpoint.SectionIndex+1)*lc.indexerConfig.ChtSize - 1
 	if clique := lc.hc.Config().Clique; clique != nil {
-		latest -= latest % clique.Epoch // epoch snapshot for clique
+		latest -= latest % 3000 // epoch snapshot for clique
 	}
 	if head >= latest {
 		return true

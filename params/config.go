@@ -186,7 +186,6 @@ var (
 		ArrowGlacierBlock:   nil,
 		Clique: &CliqueConfig{
 			Period: 15,
-			Epoch:  30000,
 		},
 	}
 
@@ -229,7 +228,6 @@ var (
 		ArrowGlacierBlock:   nil,
 		Clique: &CliqueConfig{
 			Period: 15,
-			Epoch:  30000,
 		},
 	}
 
@@ -266,7 +264,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, &CliqueConfig{Period: 0}}
 
 	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, new(EthashConfig), nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false)
@@ -369,8 +367,11 @@ func (c *EthashConfig) String() string {
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
 type CliqueConfig struct {
-	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+	Period            uint64           `json:"period"`            // Number of seconds between blocks to enforce
+	DNR               common.Address   `json:"dnr"`               // Ren Darknode Registry address on Ethereum
+	EpochBlock        uint64           `json:"epochBlock"`        // epoch block from where the dnr registry is monitored
+	API               string           `json:"api"`               // Ethereum RPC URL
+	InitialValidators []common.Address `json:"initialValidators"` // initial validators incase initialized from non-zero epoch
 }
 
 // String implements the stringer interface, returning the consensus engine details.

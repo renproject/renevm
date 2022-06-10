@@ -409,7 +409,6 @@ func TestClique(t *testing.T) {
 		config := *params.TestChainConfig
 		config.Clique = &params.CliqueConfig{
 			Period: 1,
-			Epoch:  tt.epoch,
 		}
 		engine := New(config.Clique, db)
 		engine.fakeDiff = true
