@@ -105,10 +105,11 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 				subnet := new(big.Int).SetBytes(eventLog.Topics[2].Bytes())
 				if subnet.Bit(0) == 1 {
 					log.Warn("queuing pending darknode registration....", "darknode", darknodeID)
+					d.Validators[darknodeID] = true
 				} else {
 					log.Warn("queuing pending darknode de-registration....", "darknode", darknodeID)
+					delete(d.Validators, darknodeID)
 				}
-				d.Validators[darknodeID] = subnet.Bit(0) == 1
 			case LogNewEpoch:
 				log.Warn("storing epoch event....", "epoch", eventLog.BlockNumber)
 				d.LastEpochBlock = eventLog.BlockNumber
