@@ -18,7 +18,7 @@ import (
 )
 
 const BlockBuffer = 100
-const LogSubnetUpdated = ""
+const LogSubnetUpdated = "0x203322e912486658ef4fc95d5da32dcbed12f5fceac274c0b6618c5874bb892f"
 const LogNewEpoch = "0xaf2fc4796f2932ce294c3684deffe5098d3ef65dc2dd64efa80ef94eed88b01e"
 
 type DNR struct {
