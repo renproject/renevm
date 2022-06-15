@@ -41,7 +41,7 @@ contract DarknodeRegistryLogicV1 is
         external
     {
         // Emit an event.
-        emit LogSubnetUpdated(_darknodeID, 1);
+        emit LogDarknodeSubnetUpdated(_darknodeID, 1);
     }
 
     function deregister(address _darknodeID)
@@ -68,6 +68,6 @@ contract DarknodeRegistryLogicV1 is
     /// Private function called by `deregister` and `slash`
     function deregisterDarknode(address _darknodeID) private {
         // Emit an event
-        emit LogSubnetUpdated(_darknodeID, 0);
+        emit LogDarknodeSubnetUpdated(_darknodeID, 0);
     }
 }
