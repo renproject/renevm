@@ -17,22 +17,12 @@ contract DarknodeRegistryStateV1 {
 contract DarknodeRegistryLogicV1 is
     DarknodeRegistryStateV1
 {
-    /// @notice Emitted when a darknode is registered.
-    /// @param _darknodeOperator The owner of the darknode.
+    /// @notice Emitted when a darknode joins a subnet.
     /// @param _darknodeID The ID of the darknode that was registered.
-    /// @param _bond The amount of REN that was transferred as bond.
-    event LogDarknodeRegistered(
-        address indexed _darknodeOperator,
+    /// @param _subnet The subnets the current darknode is part of.
+    event LogDarknodeSubnetUpdated(
         address indexed _darknodeID,
-        uint256 _bond
-    );
-
-    /// @notice Emitted when a darknode is deregistered.
-    /// @param _darknodeOperator The owner of the darknode.
-    /// @param _darknodeID The ID of the darknode that was deregistered.
-    event LogDarknodeDeregistered(
-        address indexed _darknodeOperator,
-        address indexed _darknodeID
+        uint256 indexed _subnet
     );
 
     /// @notice Emitted when a new epoch has begun.
@@ -51,7 +41,7 @@ contract DarknodeRegistryLogicV1 is
         external
     {
         // Emit an event.
-        emit LogDarknodeRegistered(msg.sender, _darknodeID, 0);
+        emit LogDarknodeSubnetUpdated(_darknodeID, 1);
     }
 
     function deregister(address _darknodeID)
@@ -78,6 +68,6 @@ contract DarknodeRegistryLogicV1 is
     /// Private function called by `deregister` and `slash`
     function deregisterDarknode(address _darknodeID) private {
         // Emit an event
-        emit LogDarknodeDeregistered(_darknodeID, _darknodeID);
+        emit LogDarknodeSubnetUpdated(_darknodeID, 0);
     }
 }

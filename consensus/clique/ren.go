@@ -4,21 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"math/big"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 const BlockBuffer = 100
-const LogDarknodeRegistered = "0x7c56cb7f63b6922d24414bf7c2b2c40c7ea1ea637c3f400efa766a85ecf2f093"
-const LogDarknodeDeregistered = "0xf73268ea792d9dbf3e21a95ec9711f0b535c5f6c99f6b4f54f6766838086b842"
+const LogSubnetUpdated = "0x203322e912486658ef4fc95d5da32dcbed12f5fceac274c0b6618c5874bb892f"
 const LogNewEpoch = "0xaf2fc4796f2932ce294c3684deffe5098d3ef65dc2dd64efa80ef94eed88b01e"
 
 type DNR struct {
@@ -100,13 +100,15 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 
 		for _, eventLog := range logs {
 			switch eventLog.Topics[0].Hex() {
-			case LogDarknodeRegistered:
-				log.Warn("queuing pending darknode registration....", "darknode", common.BytesToAddress(eventLog.Topics[2].Bytes()))
-				d.Validators[common.BytesToAddress(eventLog.Topics[2].Bytes())] = true
-			case LogDarknodeDeregistered:
-				if _, ok := d.Validators[common.BytesToAddress(eventLog.Topics[2].Bytes())]; ok {
-					log.Warn("queuing pending darknode de-registration....", "darknode", common.BytesToAddress(eventLog.Topics[2].Bytes()))
-					delete(d.Validators, common.BytesToAddress(eventLog.Topics[2].Bytes()))
+			case LogSubnetUpdated:
+				darknodeID := common.BytesToAddress(eventLog.Topics[1].Bytes())
+				subnet := new(big.Int).SetBytes(eventLog.Topics[2].Bytes())
+				if subnet.Bit(0) == 1 {
+					log.Warn("queuing pending darknode registration....", "darknode", darknodeID)
+					d.Validators[darknodeID] = true
+				} else {
+					log.Warn("queuing pending darknode de-registration....", "darknode", darknodeID)
+					delete(d.Validators, darknodeID)
 				}
 			case LogNewEpoch:
 				log.Warn("storing epoch event....", "epoch", eventLog.BlockNumber)
