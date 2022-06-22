@@ -44,6 +44,18 @@ contract DarknodeRegistryLogicV1 is
         emit LogDarknodeSubnetUpdated(_darknodeID, 1);
     }
 
+    function registerMulti(address[] calldata _darknodes) external {
+        for (uint i = 0; i < _darknodes.length; i++) {
+            emit LogDarknodeSubnetUpdated(_darknodes[i], 1);
+        }
+    }
+
+    function deregisterMulti(address[] calldata _darknodes) external {
+        for (uint i = 0; i < _darknodes.length; i++) {
+            emit LogDarknodeSubnetUpdated(_darknodes[i], 0);
+        }
+    }
+
     function deregister(address _darknodeID)
         external
     {
