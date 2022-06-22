@@ -158,6 +158,77 @@ func (api *API) Status() (*status, error) {
 	}, nil
 }
 
+// SlasherStat returns the performance of all the validators in the previous epoch only,
+// - the signer activity,
+// - the number of blocks in epoch,
+// - start of epoch block,
+// - next epoch number if available else 0,
+// - the percentage of in-turn blocks
+func (api *API) SlasherStat(epochNumber uint64) (*epochPerformance, error) {
+	var (
+		numBlocks = uint64(0)
+		header    = api.chain.CurrentHeader()
+		optimals  = 0
+	)
+	// get the latest epoch which is running currently
+	snap, err := api.clique.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil)
+	if err != nil {
+		return nil, err
+	}
+	// should have at least another epoch before current epoch
+	if snap.PreviousSnapNumber == nil || snap.PreviousSnapHash == nil {
+		return nil, fmt.Errorf("requested epoch not found")
+	}
+
+	// get the target epoch/the previous epoch where slashing is allowed
+	snap, err = api.clique.snapshot(api.chain, *snap.PreviousSnapNumber, *snap.PreviousSnapHash, nil)
+	if err != nil {
+		return nil, err
+	}
+	if snap.EpochNumber != epochNumber {
+		return nil, fmt.Errorf("epoch number mismatch, expected=%v got=%v", epochNumber, snap.EpochNumber)
+	}
+	var (
+		signers = snap.signers()
+		end     = header.Number.Uint64()
+		start   = snap.Number + 1
+	)
+	signStatus := make(map[common.Address]int)
+	for _, s := range signers {
+		signStatus[s] = 0
+	}
+	nextEpoch := uint64(0)
+	n := start
+	for ; n <= end; n++ {
+		h := api.chain.GetHeaderByNumber(n)
+		if h == nil {
+			return nil, fmt.Errorf("missing block %d", n)
+		}
+		numBlocks++
+
+		if h.Difficulty.Cmp(diffInTurn) == 0 {
+			optimals++
+		}
+		sealer, err := api.clique.Author(h)
+		if err != nil {
+			return nil, err
+		}
+		signStatus[sealer]++
+
+		if !bytes.Equal(h.Nonce[:], nonceDropVote) {
+			nextEpoch = h.Nonce.Uint64()
+			break
+		}
+	}
+	return &epochPerformance{
+		InturnPercent: float64(100*optimals) / float64(numBlocks),
+		SigningStatus: signStatus,
+		NumBlocks:     numBlocks,
+		NextEpoch:     nextEpoch,
+		StartBlock:    start,
+	}, nil
+}
+
 // EpochPerformance returns the performance of all the validators in an epoch,
 // - the signer activity,
 // - the number of blocks in epoch,
