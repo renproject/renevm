@@ -41,12 +41,12 @@ contract DarknodeRegistryLogicV1 is
         external
     {
         // Emit an event.
-        emit LogDarknodeSubnetUpdated(_darknodeID, 1);
+        emit LogDarknodeSubnetUpdated(_darknodeID, 3);
     }
 
     function registerMulti(address[] calldata _darknodes) external {
         for (uint i = 0; i < _darknodes.length; i++) {
-            emit LogDarknodeSubnetUpdated(_darknodes[i], 1);
+            emit LogDarknodeSubnetUpdated(_darknodes[i], 3);
         }
     }
 
