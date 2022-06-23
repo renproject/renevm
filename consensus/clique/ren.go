@@ -103,7 +103,7 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 			case LogSubnetUpdated:
 				darknodeID := common.BytesToAddress(eventLog.Topics[1].Bytes())
 				subnet := new(big.Int).SetBytes(eventLog.Topics[2].Bytes())
-				if subnet.Bit(0) == 1 {
+				if subnet.Bit(1) == 1 {
 					log.Warn("queuing pending darknode registration....", "darknode", darknodeID)
 					d.Validators[darknodeID] = true
 				} else {
