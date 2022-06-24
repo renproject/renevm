@@ -56,6 +56,7 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 	d.syncLock.Lock()
 	d.synced = false
 	d.syncLock.Unlock()
+	log.Info("watching dnr using rpc", "rpc", d.config.API)
 	client, err := ethclient.DialContext(ctx, d.config.API)
 	if err != nil {
 		panic(err)
@@ -70,7 +71,14 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 
 		latestBlock, err := client.BlockByNumber(ctx, nil)
 		if err != nil {
-			panic(err)
+			log.Warn("failed to fetch latest block on eth", "error", err)
+			time.Sleep(time.Minute)
+			client.Close()
+			client, err = ethclient.DialContext(ctx, d.config.API)
+			if err != nil {
+				log.Warn("failed to reconnect to rpc", "error", err)
+			}
+			continue
 		}
 
 		// a 100 block delay to handle reorgs
@@ -95,7 +103,13 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 
 		if err != nil {
 			log.Warn("[x] error syncing", "err", err)
-			panic(err)
+			time.Sleep(time.Minute)
+			client.Close()
+			client, err = ethclient.DialContext(ctx, d.config.API)
+			if err != nil {
+				log.Warn("failed to reconnect to rpc", "error", err)
+			}
+			continue
 		}
 
 		for _, eventLog := range logs {
