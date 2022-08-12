@@ -1,0 +1,27 @@
+name: release
+on:
+    push:
+        tags:
+            - '*'
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out code
+              uses: actions/checkout@v2
+            - name: Set up Go
+              uses: actions/setup-go@v2
+              with:
+                  go-version: "1.16.6"
+            - name: Get the version
+              uses: olegtarasov/get-tag@v2.1
+              id: tagName
+            - name: Build the binary
+              run: |
+                  make geth
+            - name: Create Release
+              id: create_release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: |
+                      ./build/bin/geth
