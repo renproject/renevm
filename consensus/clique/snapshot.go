@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	lru "github.com/hashicorp/golang-lru"
-	"sort"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the
@@ -173,10 +174,15 @@ func (s *Snapshot) signers() []common.Address {
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(number uint64, signer common.Address) bool {
 	signers, offset := s.signers(), 0
-	for offset < len(signers) && signers[offset] != signer {
+	signerCount := len(signers)
+	if signerCount == 0 {
+		log.Warn("no signers in the validator list, blocks cannot be produced")
+		return false
+	}
+	for offset < signerCount && signers[offset] != signer {
 		offset++
 	}
-	return (number % uint64(len(signers))) == uint64(offset)
+	return (number % uint64(signerCount)) == uint64(offset)
 }
 
 // signers retrieves the list of authorized signers in ascending order.

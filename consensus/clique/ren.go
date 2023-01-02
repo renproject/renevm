@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,7 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const BlockBuffer = 100
+const SyncBlockBuffer = 100
 const LogSubnetUpdated = "0x203322e912486658ef4fc95d5da32dcbed12f5fceac274c0b6618c5874bb892f"
 const LogNewEpoch = "0xaf2fc4796f2932ce294c3684deffe5098d3ef65dc2dd64efa80ef94eed88b01e"
 
@@ -53,6 +55,15 @@ func NewDNR(config *params.CliqueConfig, db ethdb.Database) *DNR {
 }
 
 func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
+	syncWait := int64(30)
+	syncPeriodEnv := os.Getenv("SYNC_WAIT_PERIOD")
+	if syncPeriodEnv != "" {
+		if tempPeriod, err := strconv.ParseInt(syncPeriodEnv, 10, 64); err == nil {
+			log.Info("custom dnr sync period", "period", syncPeriodEnv)
+			syncWait = tempPeriod
+		}
+	}
+
 	d.syncLock.Lock()
 	d.synced = false
 	d.syncLock.Unlock()
@@ -62,6 +73,12 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 		panic(err)
 	}
 	lastBlock := d.LastEpochBlock
+
+	lastSyncedBlock, err := GetLastSyncedBlock(db)
+
+	if err == nil && lastBlock < lastSyncedBlock {
+		lastBlock = lastSyncedBlock
+	}
 
 	log.Warn("starting watch...", "existing_validators", d.Validators, "last_epoch", d.LastEpochBlock, "dnr_addr", d.config.DNR)
 
@@ -144,7 +161,15 @@ func (d *DNR) Watch(ctx context.Context, db ethdb.Database) {
 
 		lastBlock = lastBlockNumber.Uint64()
 
-		time.Sleep(time.Second * 30)
+		if (lastBlock - lastSyncedBlock) >= 2*SyncBlockBuffer {
+			if err := StoreLastSyncedBlock(db, lastBlock-SyncBlockBuffer); err != nil {
+				log.Warn("failed to store last synced dnr block", "new_block", lastBlock, "synced_to", lastSyncedBlock)
+			} else {
+				lastSyncedBlock = lastBlock - SyncBlockBuffer
+			}
+		}
+
+		time.Sleep(time.Second * time.Duration(syncWait))
 	}
 }
 
@@ -196,4 +221,16 @@ func GetDNR(db ethdb.Database, epoch uint64) (*DNR, error) {
 		return nil, err
 	}
 	return &dnr, nil
+}
+
+func StoreLastSyncedBlock(db ethdb.Database, block uint64) error {
+	return db.Put([]byte("dnr-last-sync"), new(big.Int).SetUint64(block).Bytes())
+}
+
+func GetLastSyncedBlock(db ethdb.Database) (uint64, error) {
+	blob, err := db.Get([]byte("dnr-last-sync"))
+	if err != nil {
+		return 0, err
+	}
+	return new(big.Int).SetBytes(blob).Uint64(), nil
 }
