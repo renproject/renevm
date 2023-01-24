@@ -61,6 +61,8 @@ Remove blockchain and state databases`,
 		Category:  "DATABASE COMMANDS",
 		Subcommands: []cli.Command{
 			dbInspectCmd,
+			dbDeleteDNR,
+			dbGetDNR,
 			dbStatCmd,
 			dbCompactCmd,
 			dbGetCmd,
@@ -84,6 +86,25 @@ Remove blockchain and state databases`,
 		}, utils.NetworkFlags, utils.DatabasePathFlags),
 		Usage:       "Inspect the storage size for each type of data in the database",
 		Description: `This commands iterates the entire database. If the optional 'prefix' and 'start' arguments are provided, then the iteration is limited to the given subset of data.`,
+	}
+	dbDeleteDNR = cli.Command{
+		Action:    utils.MigrateFlags(deleteDNRData),
+		Name:      "delete-dnr",
+		ArgsUsage: "<epoch (optional)>",
+		Flags: utils.GroupFlags([]cli.Flag{
+			utils.SyncModeFlag,
+		}, utils.NetworkFlags, utils.DatabasePathFlags),
+		Usage:       "Deletes all dnr entries from db",
+		Description: `This commands iterates the entire database and deletes all dnr entries`,
+	}
+	dbGetDNR = cli.Command{
+		Action: utils.MigrateFlags(getDNRKeys),
+		Name:   "get-dnr-data",
+		Flags: utils.GroupFlags([]cli.Flag{
+			utils.SyncModeFlag,
+		}, utils.NetworkFlags, utils.DatabasePathFlags),
+		Usage:       "Deletes all dnr entries from db",
+		Description: `This commands iterates the entire database and deletes all dnr entries`,
 	}
 	dbCheckStateContentCmd = cli.Command{
 		Action:    utils.MigrateFlags(checkStateContent),
@@ -299,6 +320,66 @@ func inspect(ctx *cli.Context) error {
 	defer db.Close()
 
 	return rawdb.InspectDatabase(db, prefix, start)
+}
+
+func deleteDNRData(ctx *cli.Context) error {
+	var (
+		epoch []byte
+	)
+	if ctx.NArg() > 1 {
+		return fmt.Errorf("Max 1 arguments: %v", ctx.Command.ArgsUsage)
+	}
+	if ctx.NArg() >= 1 {
+		if d, err := hexutil.Decode(ctx.Args().Get(0)); err != nil {
+			return fmt.Errorf("failed to hex-decode 'prefix': %v", err)
+		} else {
+			epoch = d
+		}
+	}
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	db := utils.MakeChainDatabase(ctx, stack, false)
+	defer db.Close()
+
+	if epoch != nil {
+		key := "dnr-" + string(epoch)
+		if err := db.Delete([]byte(key)); err != nil {
+			log.Error("failed to delete dnr key", "key", string(key))
+			return err
+		}
+	} else {
+		iter := db.NewIterator([]byte("dnr-"), nil)
+		for iter.Next() {
+			key := iter.Key()
+			log.Info("deleting dnr key ", "key", string(key))
+			if err := db.Delete(key); err != nil {
+				log.Error("failed to delete dnr key", "key", string(key))
+				return err
+			}
+		}
+	}
+	log.Info("deleted dnr data")
+	return nil
+}
+
+func getDNRKeys(ctx *cli.Context) error {
+	if ctx.NArg() > 0 {
+		return fmt.Errorf("No arguments: %v", ctx.Command.ArgsUsage)
+	}
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	db := utils.MakeChainDatabase(ctx, stack, true)
+	defer db.Close()
+
+	iter := db.NewIterator([]byte("dnr-"), nil)
+	for iter.Next() {
+		key := iter.Key()
+		log.Info("dnr key ", "key", string(key))
+	}
+
+	return nil
 }
 
 func checkStateContent(ctx *cli.Context) error {

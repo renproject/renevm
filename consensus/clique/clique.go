@@ -382,7 +382,7 @@ func (c *Clique) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		// If an on-disk checkpoint snapshot can be found, use that
 		if epoch {
 			if s, err := loadSnapshot(c.config, c.signatures, c.db, number); err == nil {
-				log.Warn("Loaded voting snapshot from disk", "block", number, "hash", hash, "snap", snap)
+				log.Warn("Loaded voting snapshot from disk", "block", number, "hash", hash, "snap", s)
 				snap = s
 				break
 			} else {
@@ -642,7 +642,7 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 					log.Warn("failed to update snapshot", "error", err)
 					return
 				}
-				log.Info("epoch stored", "header_no,", header.Number.Uint64(), "hash", header.Hash())
+				log.Info("epoch stored", "header_no", header.Number.Uint64(), "hash", header.Hash())
 			}
 		default:
 			log.Warn("Sealing result is not read by miner", "sealhash", SealHash(header))
